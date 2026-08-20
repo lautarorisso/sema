@@ -1,5 +1,4 @@
-export type Category = "Health" | "Learning" | "Responsibilities" | "Life";
-export type Locale = "en" | "es";
+export type Category = "Sleep" | "Health" | "Learning" | "Life";
 export type Activity = {
   id: string;
   name: string;
@@ -7,6 +6,7 @@ export type Activity = {
   day: number;
   start: number;
   duration: number;
+  color: string;
   completed?: boolean;
   source?: "predefined" | "custom";
 };
@@ -18,10 +18,7 @@ export type Plan = {
   archived?: boolean;
 };
 export type Preferences = {
-  density: "compact" | "comfortable" | "detailed";
-  showSleep: boolean;
   hintDismissed: boolean;
-  locale: Locale;
 };
 export type Store = {
   version: 2;
@@ -33,6 +30,7 @@ export type Store = {
 export type Definition = {
   name: string;
   category: Category;
+  objective: "daily" | "weekly";
   min: number;
   target: number;
   max: number;
