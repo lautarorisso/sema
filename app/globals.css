@@ -39,7 +39,13 @@ button, input, select { font: inherit; }
 button { cursor: pointer; }
 button:focus-visible, input:focus-visible, select:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
 .scrollbar { scrollbar-color: var(--border) transparent; scrollbar-width: thin; }
-.activity-health { background: color-mix(in srgb, var(--primary) 18%, var(--card)); border-color: color-mix(in srgb, var(--primary) 55%, var(--border)); }
-.activity-learning { background: color-mix(in srgb, var(--accent) 14%, var(--card)); border-color: color-mix(in srgb, var(--accent) 48%, var(--border)); }
-.activity-responsibilities { background: var(--muted); border-color: var(--muted-foreground); }
-.activity-life { background: color-mix(in srgb, var(--danger) 14%, var(--card)); border-color: color-mix(in srgb, var(--danger) 45%, var(--border)); }
+.color-0 { background: color-mix(in srgb, #818cf8 24%, var(--card)); border-color: color-mix(in srgb, #818cf8 70%, var(--border)); }
+.color-1 { background: color-mix(in srgb, #34d399 24%, var(--card)); border-color: color-mix(in srgb, #34d399 70%, var(--border)); }
+.color-2 { background: color-mix(in srgb, #facc15 22%, var(--card)); border-color: color-mix(in srgb, #facc15 65%, var(--border)); }
+.color-3 { background: color-mix(in srgb, #f87171 22%, var(--card)); border-color: color-mix(in srgb, #f87171 65%, var(--border)); }
+.color-4 { background: color-mix(in srgb, #22d3ee 24%, var(--card)); border-color: color-mix(in srgb, #22d3ee 70%, var(--border)); }
+.color-5 { background: color-mix(in srgb, #f472b6 24%, var(--card)); border-color: color-mix(in srgb, #f472b6 70%, var(--border)); }
+.color-6 { background: color-mix(in srgb, #2dd4bf 24%, var(--card)); border-color: color-mix(in srgb, #2dd4bf 70%, var(--border)); }
+.color-7 { background: color-mix(in srgb, #fb923c 24%, var(--card)); border-color: color-mix(in srgb, #fb923c 70%, var(--border)); }
+.color-8 { background: color-mix(in srgb, #a78bfa 24%, var(--card)); border-color: color-mix(in srgb, #a78bfa 70%, var(--border)); }
+.color-9 { background: color-mix(in srgb, #a3e635 24%, var(--card)); border-color: color-mix(in srgb, #a3e635 70%, var(--border)); }
