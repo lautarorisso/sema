@@ -1,8 +1,21 @@
 import { expect, type Locator, type Page } from "@playwright/test";
-import type { Store } from "../lib/types";
+import type { Activity, Segment, Store } from "../lib/types";
 
 export const STORE_KEY = "sema-planner-v1";
 export const SHORT_DAYS = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"] as const;
+
+export async function seedActivities(page: Page, activities: (Omit<Activity, "segments"> & { segments?: Segment[] | { name: string; duration: number }[] })[]): Promise<void> {
+  const store = {
+    version: 2,
+    activePlanId: "seed",
+    preferences: { hintDismissed: true },
+    plans: [{ id: "seed", name: "Focused week", weekOf: "Oct 5, 2026", activities }],
+  };
+  await page.addInitScript(({ key, store }) => {
+    // Seed once so reloads still exercise the app's persisted changes.
+    if (!localStorage.getItem(key)) localStorage.setItem(key, JSON.stringify(store));
+  }, { key: STORE_KEY, store });
+}
 
 /** Locate an activity block button by accessible name (e.g. "Reunión"). */
 export function block(page: Page, name: string | RegExp): Locator {
@@ -17,7 +30,7 @@ export function block(page: Page, name: string | RegExp): Locator {
 export async function gotoApp(page: Page): Promise<void> {
   await page.goto("/");
   await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Agregar actividad" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Mis semanas" })).toBeVisible();
 }
 
 /** Parse the persisted store from localStorage. */
@@ -32,7 +45,19 @@ export function dayChip(page: Page, day: string): Locator {
 }
 
 export async function openNewActivityDialog(page: Page): Promise<void> {
-  await page.getByRole("button", { name: "Agregar actividad" }).click();
+  const mobile = await page.evaluate(() => matchMedia("(max-width: 767px)").matches);
+  await page.locator('div[class*="scrollbar"]').evaluate(el => { el.scrollTop = 300; });
+  const columns = page.locator('div[class*="md:top-14"] > div.grid > div');
+  const column = mobile ? columns.filter({ visible: true }).first() : columns.first();
+  const box = (await column.boundingBox())!;
+  const x = box.x + 2;
+  const y = box.y + 432;
+  await page.mouse.move(x, y);
+  await page.mouse.down();
+  if (mobile) await page.waitForTimeout(350);
+  else await page.mouse.move(x + 12, y);
+  await page.mouse.move(x + 12, y + 48, { steps: 4 });
+  await page.mouse.up();
   await expect(page.getByRole("heading", { name: "Nueva actividad" })).toBeVisible();
 }
 
@@ -85,8 +110,7 @@ export async function createActivity(
 
 /**
  * Custom pointer drag: down, N interpolated moves with small delays, up.
- * The app uses handwritten pointer handlers (thresholds, snapping, no reliable
- * pointer capture on desktop) so page.dragAndDrop would not work.
+ * Explicit mouse events exercise the app's pointer capture, thresholds and snapping.
  */
 export async function dragBy(page: Page, locator: Locator, dx: number, dy: number, steps = 6): Promise<void> {
   const box = (await locator.boundingBox())!;

@@ -5,24 +5,17 @@ import { block, createActivity, dragBy, gotoApp, readStore } from "./helpers";
 async function resizeBy(page: Page, b: Locator, dy: number): Promise<void> {
   const box = (await b.boundingBox())!;
   const x = box.x + box.width / 2;
-  // Desktop has no pointer capture: EVERY move must land strictly inside the
-  // (just-grown) button — the block only grows via committed re-renders.
-  // Downward: press near the handle top (bottom-11) and creep in steps that
-  // stay below the growing bottom edge (12px = 15min = one snap tick, so a
-  // ~12px step never overshoots more than a snap tick).
-  // Upward: the top edge is fixed; -12px steps keep the cursor inside.
+  // Press inside the resize handle; the stable grid captures subsequent moves.
   const press = box.y + box.height + (dy > 0 ? -11 : -6);
   await page.mouse.move(x, press);
   await page.mouse.down();
-  // Steps land on half-snap boundaries (dx*1.25 = 7.5, 22.5, …) so Math.round
-  // always rounds UP: each event grows the block 24px while the cursor only
-  // advances 12px, keeping every subsequent position safely inside.
+  // Intermediate moves exercise the 15-minute snapping preview.
   const pts = dy > 0 ? [6, 18, 30, 42, 54, 60] : [-6, -18, -30, -36];
   for (const p of pts) {
     await page.mouse.move(x, press + p, { steps: 1 });
     await page.waitForTimeout(16);
   }
-  await page.waitForTimeout(80); // let the last preview commit flush before release
+  await page.waitForTimeout(80); // allow the last preview render before release
   await page.mouse.up();
 }
 
@@ -40,17 +33,7 @@ test("drag block vertically changes its time (15-min snap) and persists", async 
   await expect(block(page, /^Reunión, 10:00/)).toBeVisible();
 });
 
-/**
- * Regression: dragging a block across days on desktop (FIXED).
- *
- * Root cause: the desktop branch never called setPointerCapture, so the
- * day-flip threshold (0.5 * columnWidth ≈ 119px) could never be reached — the
- * cursor left the button and every later move event was delivered to the
- * column underneath. The fix unified the drag threshold and pointer capture
- * across desktop and mobile (components/planner-app.tsx, ActivityBlock
- * move()). Mobile already worked and is covered by the cross-day drag test in
- * mobile.spec.ts.
- */
+// Grid-owned pointer capture keeps the gesture alive across day columns.
 test("drag block horizontally changes the day, time unchanged", async ({ page }) => {
   await gotoApp(page);
   await createActivity(page, { name: "Reunión" }); // day 0, 09:00

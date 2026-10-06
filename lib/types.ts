@@ -1,3 +1,10 @@
+export type Segment = {
+  id: string;
+  start: number;
+  duration: number;
+  name: string;
+};
+
 export type Activity = {
   id: string;
   name: string;
@@ -7,6 +14,7 @@ export type Activity = {
   color: string;
   completed?: boolean;
   source?: "predefined" | "custom";
+  segments?: Segment[];
 };
 export type Plan = {
   id: string;

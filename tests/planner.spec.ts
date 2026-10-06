@@ -78,6 +78,7 @@ test("new week (blank) becomes active and is listed in the dropdown", async ({ p
   await gotoApp(page);
   await createActivity(page, { name: "Reunión" });
 
+  await page.getByRole("button", { name: "Mis semanas" }).click();
   await page.getByRole("button", { name: "Nueva semana" }).click();
   await expect(page.getByRole("heading", { name: "Nueva semana" })).toBeVisible();
   await page.getByLabel(/Nombre de la semana/).fill("Vacaciones");
@@ -96,6 +97,7 @@ test("switching weeks via the dropdown restores the other week's content", async
   await gotoApp(page);
   await createActivity(page, { name: "Reunión" });
 
+  await page.getByRole("button", { name: "Mis semanas" }).click();
   await page.getByRole("button", { name: "Nueva semana" }).click();
   await page.getByLabel(/Nombre de la semana/).fill("Vacaciones");
   await page.getByRole("button", { name: "Crear semana" }).click();
@@ -111,6 +113,7 @@ test("new week (copy current) duplicates activities", async ({ page }) => {
   await gotoApp(page);
   await createActivity(page, { name: "Reunión" });
 
+  await page.getByRole("button", { name: "Mis semanas" }).click();
   await page.getByRole("button", { name: "Nueva semana" }).click();
   await page.getByLabel(/Nombre de la semana/).fill("Copia");
   await page.getByRole("button", { name: "Copiar semana actual" }).click();
@@ -128,6 +131,7 @@ test("deleting a week from the dropdown asks for confirmation and switches activ
   await gotoApp(page);
   await createActivity(page, { name: "Reunión" });
 
+  await page.getByRole("button", { name: "Mis semanas" }).click();
   await page.getByRole("button", { name: "Nueva semana" }).click();
   await page.getByLabel(/Nombre de la semana/).fill("Temp");
   await page.getByRole("button", { name: "Crear semana" }).click();
