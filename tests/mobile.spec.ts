@@ -195,8 +195,8 @@ test("segment calendar supports real touch scroll, long-press selection, move an
   await touch("touchMove", x, grid.y + 105); await touch("touchEnd");
   const editor = page.getByRole("dialog", { name: "Editar segmento", exact: true });
   await expect(editor).toBeVisible();
-  await expect(editor.getByLabel("Inicio en minutos desde la actividad")).toHaveValue("10");
-  await expect(editor.getByLabel("Duración del segmento")).toHaveValue("25");
+  await expect(editor.getByLabel("Hora de inicio")).toHaveValue("09:10");
+  await expect(editor.getByLabel("Duración (minutos)")).toHaveValue("25");
   await editor.getByLabel("Nombre del segmento").fill("Touch segment");
   await page.getByRole("button", { name: "Guardar segmento" }).click();
   const segment = page.getByRole("button", { name: /^Touch segment,/ });

@@ -33,10 +33,10 @@ test("download menu uses native print for both actions and explains the PDF dest
 });
 
 for (const width of [320, 1280]) {
-  test(`native print CSS shows all seven days and 24 hours at ${width}px without controls or clipping`, async ({ page }, testInfo) => {
+  test(`native print keeps the colored full week on one A4 page at ${width}px without controls or clipping`, async ({ page }, testInfo) => {
     await page.setViewportSize({ width, height: 1800 });
     const activities: Activity[] = Array.from({ length: 7 }, (_, day) => ({ ...study, id: `day-${day}`, name: `Day ${day}`, day, start: day === 6 ? 1425 : 0, duration: day === 6 ? 15 : 1440 }));
-    activities.push({ ...study, id: "night", name: "Night", start: 1380, duration: 120, segments: [{ id: "tiny", name: "Tiny midnight detail", start: 58, duration: 5 }] });
+    activities.push({ ...study, id: "night", name: "Night", color: "#34d399", start: 1380, duration: 120, segments: [{ id: "tiny", name: "Tiny midnight detail", start: 58, duration: 5 }] });
     await seedActivities(page, activities); await gotoApp(page);
     if (width === 320) await page.getByRole("button", { name: "Siguiente" }).click();
     await block(page, "Day 1").click();
@@ -48,19 +48,26 @@ for (const width of [320, 1280]) {
     await expect(page.locator(".print-hour")).toHaveCount(25);
     await expect(page.locator(".print-hour").last()).toHaveText("24:00");
     await expect(page.locator(".print-activity")).toHaveCount(9);
-    await expect(page.locator(".print-details")).toContainText("Tiny midnight detail");
+    await expect(page.locator(".print-details")).toHaveCount(0);
+    await expect(page.locator('[data-print-activity="night"]')).toHaveCount(2);
+    await expect(page.locator('[data-print-activity="day-6"] b')).toHaveText("Day 6");
+    const colors = await page.locator(".print-activity").evaluateAll(elements => elements.map(el => ({ border: getComputedStyle(el).borderLeftColor, fill: getComputedStyle(el).backgroundColor, exact: getComputedStyle(el).printColorAdjust })));
+    expect(new Set(colors.map(color => color.fill)).size).toBe(2);
+    expect(colors.some(color => color.border === "rgb(52, 211, 153)")).toBe(true);
+    expect(colors.every(color => color.exact === "exact")).toBe(true);
     await expect(page.getByRole("button")).toHaveCount(0);
     await expect(page.getByRole("dialog")).toHaveCount(0);
     const dimensions = await page.locator(".print-grid").evaluate(el => {
       const grid = el.getBoundingClientRect();
       return { height: grid.height, overflow: getComputedStyle(document.body).overflow, background: getComputedStyle(document.body).backgroundColor, blocks: Array.from(el.querySelectorAll(".print-activity")).map(child => { const r = child.getBoundingClientRect(); return { top: r.top - grid.top, bottom: r.bottom - grid.top, left: r.left - grid.left, right: r.right - grid.left }; }), width: grid.width };
     });
-    expect(dimensions.height).toBeCloseTo(160 * 96 / 25.4, 0);
+    expect(dimensions.height).toBeCloseTo(170 * 96 / 25.4, 0);
+    expect(dimensions.width).toBeCloseTo(281 * 96 / 25.4, 0);
     expect(dimensions.overflow).toBe("visible"); expect(dimensions.background).toBe("rgb(255, 255, 255)");
     expect(dimensions.blocks.every(b => b.top >= 0 && b.bottom <= dimensions.height + 1 && b.left >= 0 && b.right <= dimensions.width + 1)).toBe(true);
     const pdf = await page.pdf({ path: testInfo.outputPath("week.pdf"), preferCSSPageSize: true, printBackground: true });
     const source = pdf.toString("latin1");
-    expect(source.match(/\/Type \/Page\b/g)).toHaveLength(2);
+    expect(source.match(/\/Type \/Page\b/g)).toHaveLength(1);
     const size = source.match(/\/MediaBox\s*\[0 0 ([\d.]+) ([\d.]+)\]/)!;
     expect(Number(size[1])).toBeCloseTo(842, -1); expect(Number(size[2])).toBeCloseTo(595, -1);
     await page.setViewportSize({ width: 1123, height: 900 });
@@ -70,7 +77,9 @@ for (const width of [320, 1280]) {
   });
 }
 
-test("empty week produces one A4 landscape page, and print follows the active week", async ({ page }) => {
+for (const width of [320, 1280]) {
+test(`empty print week produces one A4 landscape page and follows the active week at ${width}px`, async ({ page }) => {
+  await page.setViewportSize({ width, height: 800 });
   await seedActivities(page, []); await gotoApp(page);
   await page.getByRole("button", { name: "Mis semanas" }).click();
   await page.getByRole("button", { name: "Nueva semana" }).click();
@@ -78,9 +87,31 @@ test("empty week produces one A4 landscape page, and print follows the active we
   await page.getByRole("button", { name: "Crear semana" }).click();
   await page.emulateMedia({ media: "print" });
   await expect(page.locator(".print-title h2")).toHaveText("Printable active week");
+  await expect(page.locator(".print-days strong")).toHaveCount(7);
+  await expect(page.locator(".print-hour").first()).toHaveText("08:00");
+  await expect(page.locator(".print-hour").last()).toHaveText("20:00");
   const pdf = await page.pdf({ preferCSSPageSize: true });
+  const source = pdf.toString("latin1");
+  expect(source.match(/\/Type \/Page\b/g)).toHaveLength(1);
+  const size = source.match(/\/MediaBox\s*\[0 0 ([\d.]+) ([\d.]+)\]/)!;
+  expect(Number(size[1])).toBeCloseTo(842, -1); expect(Number(size[2])).toBeCloseTo(595, -1);
+});
+
+test(`print trims unused whole hours and keeps feasible segment details at ${width}px`, async ({ page }) => {
+  await page.setViewportSize({ width, height: 800 });
+  await seedActivities(page, [{ ...study, start: 555, segments: [{ id: "reading", name: "Reading", start: 30, duration: 60 }] }, { ...study, id: "overlap", name: "Overlap", start: 600, duration: 60, color: "#f87171" }]);
+  await gotoApp(page); await page.emulateMedia({ media: "print" });
+  await expect(page.locator(".print-hour").first()).toHaveText("09:00");
+  await expect(page.locator(".print-hour").last()).toHaveText("14:00");
+  await expect(page.locator('[data-print-activity="study"]')).toContainText("09:15–13:15");
+  await expect(page.locator(".print-segment")).toHaveText("Reading · 09:45");
+  const studyBox = (await page.locator('[data-print-activity="study"]').boundingBox())!;
+  const overlapBox = (await page.locator('[data-print-activity="overlap"]').boundingBox())!;
+  expect(studyBox.x + studyBox.width).toBeLessThanOrEqual(overlapBox.x + 1);
+  const pdf = await page.pdf({ preferCSSPageSize: true, printBackground: true });
   expect(pdf.toString("latin1").match(/\/Type \/Page\b/g)).toHaveLength(1);
 });
+}
 
 test("mini timeline keeps titles clear, exposes full details and retains move and resize gestures", async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 1800 });

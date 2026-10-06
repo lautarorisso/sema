@@ -131,10 +131,15 @@ export function SegmentPlanner({ start, duration, segments, change, close }: {
         <form role="dialog" aria-modal="true" aria-label="Editar segmento" onSubmit={event => { event.preventDefault(); event.stopPropagation(); if (error) return; change([...segments.filter(segment => segment.id !== editing.id), { ...editing, name: editing.name.trim() }]); closeEditor(); }} className="max-h-[calc(100dvh-1.5rem)] w-full max-w-sm overflow-y-auto rounded-xl border border-border bg-card p-4">
           <h3 className="text-lg font-semibold">Editar segmento</h3>
           <label className="mt-3 block text-sm">Nombre del segmento<input autoFocus required className={input} value={editing.name} onChange={e => setEditing({ ...editing, name: e.target.value })} /></label>
-          <label className="mt-3 block text-sm">Inicio en minutos desde la actividad<input type="number" min="0" max={duration - 1} step="1" required className={input} value={editing.start} onChange={e => setEditing({ ...editing, start: Number(e.target.value) })} /></label>
-          <label className="mt-3 block text-sm">Duración del segmento<input type="number" min="1" max={duration - editing.start} step="1" required className={input} value={editing.duration} onChange={e => setEditing({ ...editing, duration: Number(e.target.value) })} /></label>
-          <p className="mt-2 text-xs text-muted-foreground">{time(start + editing.start)}–{time(start + editing.start + editing.duration)}</p>
-          {error && <p role="alert" className="mt-2 text-sm text-danger">Ingresá un nombre, inicio no negativo y duración en minutos enteros dentro de la actividad.</p>}
+          <label className="mt-3 block text-sm">Hora de inicio<input type="time" step="60" required className={input} value={Number.isFinite(editing.start) ? time(start + editing.start) : ""} onChange={e => {
+            const [hours, minutes] = e.target.value.split(":").map(Number);
+            let minute = hours * 60 + minutes;
+            if (minute < start && start + duration > 1440) minute += 1440;
+            setEditing({ ...editing, start: minute - start });
+          }} /></label>
+          <label className="mt-3 block text-sm">Duración (minutos)<input type="number" min="1" max={duration - editing.start} step="1" required className={input} value={editing.duration} onChange={e => setEditing({ ...editing, duration: Number(e.target.value) })} /></label>
+          {Number.isFinite(editing.start) && <p className="mt-2 text-xs text-muted-foreground">{time(start + editing.start)}–{time(start + editing.start + editing.duration)}{start + editing.start >= 1440 ? " · Día siguiente" : start + editing.start + editing.duration > 1440 ? " · Termina al día siguiente" : ""}</p>}
+          {error && <p role="alert" className="mt-2 text-sm text-danger">Ingresá un nombre, una hora de inicio dentro de la actividad y una duración en minutos enteros que no supere su horario.</p>}
           <div className="mt-4 flex flex-wrap justify-end gap-2">
             {segments.some(segment => segment.id === editing.id) && <button type="button" className={button} onClick={() => { change(segments.filter(segment => segment.id !== editing.id)); closeEditor(); }}>Eliminar segmento</button>}
             <button type="button" className={button} onClick={closeEditor}>Cancelar segmento</button>

@@ -11,8 +11,11 @@ const openCalendar = async (page: Page) => { await page.getByRole("button", { na
 async function addSegment(page: Page, name: string, start: number, duration: number) {
   await page.getByRole("button", { name: "Nuevo segmento" }).click();
   await editor(page).getByLabel("Nombre del segmento").fill(name);
-  await editor(page).getByLabel("Inicio en minutos desde la actividad").fill(String(start));
-  await editor(page).getByLabel("Duración del segmento").fill(String(duration));
+  const initialTime = await editor(page).getByLabel("Hora de inicio").inputValue();
+  const [hours, minutes] = initialTime.split(":").map(Number);
+  const minute = (hours * 60 + minutes + start) % 1440;
+  await editor(page).getByLabel("Hora de inicio").fill(`${String(Math.floor(minute / 60)).padStart(2, "0")}:${String(minute % 60).padStart(2, "0")}`);
+  await editor(page).getByLabel("Duración (minutos)").fill(String(duration));
   await page.getByRole("button", { name: "Guardar segmento", exact: true }).click();
 }
 const back = async (page: Page) => { await page.getByRole("button", { name: "Volver a la actividad" }).click(); };
@@ -83,17 +86,18 @@ test("segment editor validates exact minutes and bounds; edit and delete persist
   await expect(page.getByRole("button", { name: "Guardar segmento" })).toBeDisabled();
   await editor(page).getByLabel("Nombre del segmento").fill("Read");
   for (const value of ["0", "-1", "1.5", "121"]) {
-    await editor(page).getByLabel("Duración del segmento").fill(value);
+    await editor(page).getByLabel("Duración (minutos)").fill(value);
     await expect(page.getByRole("button", { name: "Guardar segmento" })).toBeDisabled();
   }
-  await editor(page).getByLabel("Duración del segmento").fill("25");
-  for (const value of ["-1", "0.5", "100"]) {
-    await editor(page).getByLabel("Inicio en minutos desde la actividad").fill(value);
+  await editor(page).getByLabel("Duración (minutos)").fill("25");
+  for (const value of ["08:59", "10:40", "11:00", ""]) {
+    await editor(page).getByLabel("Hora de inicio").fill(value);
     await expect(page.getByRole("button", { name: "Guardar segmento" })).toBeDisabled();
   }
-  await editor(page).getByLabel("Inicio en minutos desde la actividad").fill("30");
+  await editor(page).getByLabel("Hora de inicio").fill("09:30");
   await page.getByRole("button", { name: "Guardar segmento" }).click();
   await calendar(page).getByRole("button", { name: /^Read,/ }).click();
+  await expect(editor(page).getByLabel("Hora de inicio")).toHaveValue("09:30");
   await editor(page).getByLabel("Nombre del segmento").fill("Changed");
   await page.getByRole("button", { name: "Guardar segmento" }).click(); await back(page);
   await page.getByRole("button", { name: "Guardar", exact: true }).click(); await page.reload();
@@ -104,13 +108,29 @@ test("segment editor validates exact minutes and bounds; edit and delete persist
   expect((await activities(page))[0].segments).toEqual([]);
 });
 
+test("segment start time after midnight saves its relative offset", async ({ page }) => {
+  await seedActivities(page, [{ ...original, start: 1380, duration: 180 }]);
+  await gotoApp(page); await block(page, /^Study, 23:00/).click(); await openCalendar(page);
+  await addSegment(page, "Night reading", 90, 25);
+  await calendar(page).getByRole("button", { name: /^Night reading,/ }).click();
+  await expect(editor(page).getByLabel("Hora de inicio")).toHaveValue("00:30");
+  await expect(editor(page)).toContainText("Día siguiente");
+  await editor(page).getByLabel("Hora de inicio").fill("02:00");
+  await expect(page.getByRole("button", { name: "Guardar segmento" })).toBeDisabled();
+  await editor(page).getByLabel("Hora de inicio").fill("00:45");
+  await page.getByRole("button", { name: "Guardar segmento" }).click();
+  await back(page); await page.getByRole("button", { name: "Guardar", exact: true }).click();
+  await page.reload();
+  expect((await activities(page))[0].segments?.[0]).toMatchObject({ name: "Night reading", start: 105, duration: 25 });
+});
+
 test("selection creates a segment; move and bottom resize retain stable IDs", async ({ page }) => {
   await seedActivities(page, [original]); await gotoApp(page); await block(page, "Study").click(); await openCalendar(page);
   const grid = (await page.getByTestId("segment-grid").boundingBox())!;
   await page.mouse.move(grid.x + 10, grid.y + 30); await page.mouse.down();
   await page.mouse.move(grid.x + 10, grid.y + 105); await page.mouse.up();
-  await expect(editor(page).getByLabel("Inicio en minutos desde la actividad")).toHaveValue("10");
-  await expect(editor(page).getByLabel("Duración del segmento")).toHaveValue("25");
+  await expect(editor(page).getByLabel("Hora de inicio")).toHaveValue("09:10");
+  await expect(editor(page).getByLabel("Duración (minutos)")).toHaveValue("25");
   await editor(page).getByLabel("Nombre del segmento").fill("Selected"); await page.getByRole("button", { name: "Guardar segmento" }).click();
   const segment = calendar(page).getByRole("button", { name: /^Selected,/ }); const id = await segment.getAttribute("data-segment-id");
   await dragBy(page, segment, 0, 60); await expect(segment).toHaveAccessibleName("Selected, 09:30, 25 minutos");

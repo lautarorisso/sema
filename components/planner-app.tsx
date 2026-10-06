@@ -259,18 +259,23 @@ function DownloadMenu() {
 
 function PrintWeek({ plan }: { plan: Plan }) {
   const blocks = assignColumns(plan.activities.flatMap(expand));
+  const start = blocks.length ? Math.floor(Math.min(...blocks.map(a => a.start)) / 60) * 60 : 480;
+  const end = blocks.length ? Math.ceil(Math.max(...blocks.map(a => a.start + a.duration)) / 60) * 60 : 1200;
+  const duration = Math.max(60, end - start);
+  const printTime = (minute: number) => minute === 1440 ? "24:00" : fmt(minute);
   return <section className="print-week" aria-label="Semana para imprimir">
-    <header className="print-title"><h2>{plan.name}</h2><p>{plan.weekOf} · Semana completa · 00:00–24:00 · Referencias y segmentos en el detalle</p></header>
+    <header className="print-title"><h2>{plan.name}</h2><p>{plan.weekOf} · Semana completa · {printTime(start)}–{printTime(start + duration)}</p></header>
     <div className="print-days"><span />{DAYS.map(day => <strong key={day}>{day}</strong>)}</div>
     <div className="print-grid">
-      {Array.from({ length: 25 }, (_, hour) => <div key={hour} className="print-hour" style={{ top: `${hour / 24 * 100}%` }}><span>{String(hour).padStart(2, "0")}:00</span></div>)}
+      {Array.from({ length: duration / 60 + 1 }, (_, hour) => <div key={hour} className="print-hour" style={{ top: `${hour * 60 / duration * 100}%` }}><span>{printTime(start + hour * 60)}</span></div>)}
       <div className="print-columns">{DAYS.map(day => <div key={day} />)}</div>
       {blocks.map(activity => {
-        const reference = plan.activities.findIndex(a => a.id === activity.activityId) + 1;
-        return <div key={activity.id} className="print-activity" data-print-activity={activity.activityId} style={{ top: `${activity.start / 1440 * 100}%`, height: `${activity.duration / 1440 * 100}%`, left: `calc(10mm + (100% - 10mm) * ${(activity.day + activity.col / activity.cols) / 7})`, width: `calc((100% - 10mm) / ${7 * activity.cols})` }}><b>{reference}. {activityName(activity.name)}</b><span>{fmt(activity.start)}–{activity.start + activity.duration === 1440 ? "24:00" : fmt(activity.start + activity.duration)}</span></div>;
+        const height = activity.duration / duration * 170;
+        const offset = activity.portion === "second" ? 1440 - activity.originalStart : 0;
+        const segments = (activity.segments ?? []).filter(segment => segment.start < offset + activity.duration && segment.start + segment.duration > offset).sort((a, b) => a.start - b.start).slice(0, Math.max(0, Math.floor((height - 7) / 3)));
+        return <div key={activity.id} className={cn("print-activity", height < 6 && "print-compact")} data-print-activity={activity.activityId} style={{ top: `min(${(activity.start - start) / duration * 100}%, calc(100% - 3mm))`, height: `${activity.duration / duration * 100}%`, left: `calc(10mm + (100% - 10mm) * ${(activity.day + activity.col / activity.cols) / 7})`, width: `calc((100% - 10mm) / ${7 * activity.cols})`, backgroundColor: `color-mix(in srgb, ${activity.color} 30%, white)`, borderColor: activity.color }}><b>{activityName(activity.name || t.custom)}</b><span>{printTime(activity.start)}–{printTime(activity.start + activity.duration)}</span>{segments.map(segment => <span key={segment.id} className="print-segment">{segment.name} · {fmt(activity.originalStart + segment.start)}</span>)}</div>;
       })}
     </div>
-    {plan.activities.length > 0 && <section className="print-details"><h2>{plan.name} · Detalle de actividades</h2><ol>{plan.activities.map(activity => <li key={activity.id}><strong>{activityName(activity.name)}</strong><p>{DAYS[activity.day]} · {fmt(activity.start)}–{activity.start + activity.duration === 1440 ? "24:00" : fmt(activity.start + activity.duration)} · {mins(activity.duration)}{activity.start + activity.duration > 1440 ? " · Continúa al día siguiente" : ""}</p>{activity.segments?.map(segment => <p key={segment.id} className="print-segment">{segment.name} · {fmt(activity.start + segment.start)}–{fmt(activity.start + segment.start + segment.duration)} · {mins(segment.duration)}{activity.start + segment.start >= 1440 ? " · Día siguiente" : activity.start + segment.start + segment.duration > 1440 ? " · Cruza medianoche" : ""}</p>)}</li>)}</ol></section>}
   </section>;
 }
 
